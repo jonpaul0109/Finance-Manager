@@ -220,14 +220,17 @@ function renderAccounts(container, state) {
             ` · restan ${money(it.remaining)}` + (it.nextInstallmentDate ? ` · próxima ${it.nextInstallmentDate}` : "")
           })),
         ]),
-        el("button", {
-          type: "button", class: "btn btn-danger btn-sm", text: "Eliminar",
-          onclick: async () => {
-            const inUse = transactions.some((t) => t.account_id === a.id) || transfers.some((t) => t.from_account_id === a.id || t.to_account_id === a.id);
-            if (inUse) { alert("No se puede eliminar: esta cuenta tiene movimientos registrados. Eliminalos primero."); return; }
-            if (confirm("¿Eliminar esta cuenta?")) { await FinDB.remove("accounts", a.id); window.refreshApp(); }
-          },
-        }),
+        el("div", { class: "card-actions" }, [
+          el("button", { type: "button", class: "btn btn-secondary btn-sm", text: "Editar", onclick: () => openModal("Editar cuenta", accountForm(a)) }),
+          el("button", {
+            type: "button", class: "btn btn-danger btn-sm", text: "Eliminar",
+            onclick: async () => {
+              const inUse = transactions.some((t) => t.account_id === a.id) || transfers.some((t) => t.from_account_id === a.id || t.to_account_id === a.id);
+              if (inUse) { alert("No se puede eliminar: esta cuenta tiene movimientos registrados. Eliminalos primero."); return; }
+              if (confirm("¿Eliminar esta cuenta?")) { await FinDB.remove("accounts", a.id); window.refreshApp(); }
+            },
+          }),
+        ]),
       ]);
       list.appendChild(card);
     });
@@ -251,14 +254,17 @@ function renderAccounts(container, state) {
         el("span", { text: v.plate || "Sin placa registrada" }),
         el("span", { class: "muted", text: `Gasto este mes: ${money(spend.thisMonth)} · Histórico: ${money(spend.total)}` }),
       ]),
-      el("button", {
-        type: "button", class: "btn btn-danger btn-sm", text: "Eliminar",
-        onclick: async () => {
-          if (!confirm("¿Eliminar este vehículo?")) return;
-          await FinDB.remove("vehicles", v.id);
-          window.refreshApp();
-        },
-      }),
+      el("div", { class: "card-actions" }, [
+        el("button", { type: "button", class: "btn btn-secondary btn-sm", text: "Editar", onclick: () => openModal("Editar vehículo", vehicleForm(v)) }),
+        el("button", {
+          type: "button", class: "btn btn-danger btn-sm", text: "Eliminar",
+          onclick: async () => {
+            if (!confirm("¿Eliminar este vehículo?")) return;
+            await FinDB.remove("vehicles", v.id);
+            window.refreshApp();
+          },
+        }),
+      ]),
     ]));
   });
   container.appendChild(vlist);
@@ -294,6 +300,7 @@ function renderDebts(container, state) {
         ]),
         el("div", { class: "card-actions" }, [
           ...(isPaidOff ? [] : [el("button", { type: "button", class: "btn btn-secondary btn-sm", text: "Pagar cuota", onclick: () => openModal(`Pagar: ${d.debt_name}`, debtPaymentForm(state, d)) })]),
+          el("button", { type: "button", class: "btn btn-secondary btn-sm", text: "Editar", onclick: () => openModal("Editar deuda", debtForm(state, d)) }),
           el("button", {
             type: "button", class: "btn btn-danger btn-sm", text: "Eliminar",
             onclick: async () => {
@@ -333,6 +340,7 @@ function renderDebts(container, state) {
       ]),
       el("div", { class: "card-actions" }, [
         ...(t.status !== "PAID" ? [el("button", { type: "button", class: "btn btn-secondary btn-sm", text: "Pagar", onclick: () => openModal(`Pagar: ${t.tax_name}`, taxPaymentForm(state, t)) })] : []),
+        el("button", { type: "button", class: "btn btn-secondary btn-sm", text: "Editar", onclick: () => openModal("Editar impuesto", taxForm(t)) }),
         el("button", {
           type: "button", class: "btn btn-danger btn-sm", text: "Eliminar",
           onclick: async () => { if (confirm("¿Eliminar este impuesto?")) { await FinDB.remove("taxes", t.id); window.refreshApp(); } },
@@ -394,6 +402,7 @@ function renderGoals(container, state) {
       ]),
       el("div", { class: "card-actions" }, [
         el("button", { type: "button", class: "btn btn-secondary btn-sm", text: "+ Aportar", onclick: () => openModal(`Aportar: ${g.goal_name}`, savingsContributionForm(state, g)) }),
+        el("button", { type: "button", class: "btn btn-secondary btn-sm", text: "Editar", onclick: () => openModal("Editar meta", savingsGoalForm(state, g)) }),
         el("button", {
           type: "button", class: "btn btn-danger btn-sm", text: "Eliminar",
           onclick: async () => {
