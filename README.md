@@ -128,3 +128,13 @@ antes de reinstalar y armamos algo para exportarlos primero.
 - Se agregaron botones "Editar" explícitos en Cuentas, Deudas,
   Vehículos y Metas (antes había que tocar toda la tarjeta, que no era
   obvio).
+
+## Segunda ronda de correcciones
+
+- La sección "💳 Tarjetas de Crédito" en Deudas ahora tiene sus propios
+  botones: **"+ Registrar compra"** (abre el formulario de gasto con
+  la tarjeta ya seleccionada, mostrando de una el selector
+  Corriente/Diferido), **"Registrar pago"** (transferencia para pagar
+  la tarjeta, con la tarjeta ya precargada como destino), **"Editar"**
+  y **"Eliminar"** (antes faltaba el botón de eliminar por completo en
+  esta sección).

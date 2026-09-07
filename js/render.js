@@ -346,6 +346,25 @@ function renderDebts(container, state) {
             ` · restan ${money(it.remaining)}` + (it.nextInstallmentDate ? ` · próxima ${fmtDate(it.nextInstallmentDate)}` : "")
           })),
         ]),
+        el("div", { class: "card-actions" }, [
+          el("button", {
+            type: "button", class: "btn btn-secondary btn-sm", text: "+ Registrar compra",
+            onclick: () => openModal(`Gasto con ${a.account_name}`, transactionForm(state, { account_id: a.id, transaction_type: "EXPENSE" })),
+          }),
+          el("button", {
+            type: "button", class: "btn btn-secondary btn-sm", text: "Registrar pago",
+            onclick: () => openModal(`Pagar ${a.account_name}`, transactionForm(state, { transaction_type: "TRANSFER", to_account_id: a.id })),
+          }),
+          el("button", { type: "button", class: "btn btn-secondary btn-sm", text: "Editar", onclick: () => openModal("Editar cuenta", accountForm(a)) }),
+          el("button", {
+            type: "button", class: "btn btn-danger btn-sm", text: "Eliminar",
+            onclick: async () => {
+              const inUse = state.transactions.some((t) => t.account_id === a.id) || state.transfers.some((t) => t.from_account_id === a.id || t.to_account_id === a.id);
+              if (inUse) { alert("No se puede eliminar: esta tarjeta tiene movimientos registrados. Eliminalos primero (desde Movimientos)."); return; }
+              if (confirm(`¿Eliminar la tarjeta ${a.account_name}?`)) { await FinDB.remove("accounts", a.id); window.refreshApp(); }
+            },
+          }),
+        ]),
       ]);
       clist.appendChild(ccard);
     });
