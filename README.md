@@ -138,3 +138,24 @@ antes de reinstalar y armamos algo para exportarlos primero.
   la tarjeta, con la tarjeta ya precargada como destino), **"Editar"**
   y **"Eliminar"** (antes faltaba el botón de eliminar por completo en
   esta sección).
+
+## Tercera ronda de correcciones
+
+- **Editar movimientos**: en "Movimientos" no había forma de editar
+  ninguna transacción ni transferencia, solo verla o eliminarla — si
+  ingresabas un monto o categoría erróneos, la única salida era
+  borrar y volver a cargar todo. Ahora cada movimiento tiene su botón
+  "Editar", que recupera correctamente el monto, cuenta, categoría,
+  etiquetas, detalle de comida (si aplica), y tipo de pago
+  corriente/diferido (si es una compra de tarjeta).
+- Corregí de paso un bug de orden: la lista de Movimientos comparaba
+  el campo `id` de transacciones y transferencias como si fueran
+  comparables, pero son contadores independientes de tablas distintas
+  -- podía mostrar el orden cronológico incorrecto cuando había ambos
+  tipos el mismo día. Ahora ordena por fecha de creación real.
+- Sobre "solo permite 3 compras": probé registrar 6 compras diferidas
+  seguidas en la misma tarjeta y las 6 se guardaron y mostraron bien,
+  no encontré ningún límite. Es probable que la confusión viniera de
+  no poder editar una compra mal cargada (ahora sí se puede). Si te
+  sigue pasando avisame con más detalle -- qué mensaje o comportamiento
+  ves exactamente al intentar la compra número 4.

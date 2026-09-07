@@ -24,6 +24,17 @@ function tagNamesFor(txId, transactionTags, tags) {
     .map((l) => (tags.find((t) => t.id === l.tag_id) || {}).tag_name)
     .filter(Boolean);
 }
+function tagIdsFor(txId, transactionTags) {
+  return transactionTags.filter((l) => l.transaction_id === txId).map((l) => l.tag_id);
+}
+function enrichTxForEdit(tx, state) {
+  const food = (state.foodExpenses || []).find((f) => f.transaction_id === tx.id);
+  return {
+    ...tx,
+    tag_ids: tagIdsFor(tx.id, state.transactionTags),
+    ...(food ? { food_type: food.food_type, meal_type: food.meal_type, people_count: food.people_count, location: food.location } : {}),
+  };
+}
 function accountTypeLabel(t) { return ACCOUNT_TYPE_LABELS[t] || t; }
 
 // ---------------------------------------------------------------------
@@ -120,9 +131,9 @@ function renderTransactions(container, state) {
   container.innerHTML = "";
 
   const combined = [
-    ...transactions.map((tx) => ({ kind: "tx", date: tx.transaction_date, data: tx })),
-    ...transfers.map((tr) => ({ kind: "transfer", date: tr.transfer_date, data: tr })),
-  ].sort((a, b) => (b.date || "").localeCompare(a.date || "") || (b.data.id - a.data.id));
+    ...transactions.map((tx) => ({ kind: "tx", date: tx.transaction_date, sortKey: tx.created_at || "", data: tx })),
+    ...transfers.map((tr) => ({ kind: "transfer", date: tr.transfer_date, sortKey: tr.created_at || "", data: tr })),
+  ].sort((a, b) => (b.date || "").localeCompare(a.date || "") || (b.sortKey || "").localeCompare(a.sortKey || ""));
 
   if (!combined.length) {
     container.appendChild(el("p", { class: "muted", text: "Todavía no hay movimientos registrados." }));
@@ -156,24 +167,38 @@ function renderTransactions(container, state) {
     ];
     if (sub) infoChildren.push(el("span", { class: "muted", text: "🏷 " + sub }));
 
+    const openEdit = () => {
+      if (item.kind === "transfer") {
+        openModal("Editar transferencia", transactionForm(state, { ...item.data, transaction_type: "TRANSFER", transaction_date: item.data.transfer_date }));
+      } else {
+        openModal("Editar movimiento", transactionForm(state, enrichTxForEdit(item.data, state)));
+      }
+    };
+
     const card = el("div", { class: "sample-card" }, [
-      el("div", { class: "sample-info" }, infoChildren),
       el("button", {
-        type: "button", class: "btn btn-danger btn-sm", text: "Eliminar",
-        onclick: async () => {
-          if (!confirm("¿Eliminar este movimiento?")) return;
-          if (item.kind === "transfer") {
-            await FinDB.remove("transfers", item.data.id);
-          } else {
-            await FinDB.remove("transactions", item.data.id);
-            const links = transactionTags.filter((l) => l.transaction_id === item.data.id);
-            for (const l of links) await FinDB.remove("transaction_tags", l.id);
-            const food = foodExpenses.find((f) => f.transaction_id === item.data.id);
-            if (food) await FinDB.remove("food_expenses", food.id);
-          }
-          window.refreshApp();
-        },
-      }),
+        type: "button", class: "sample-info", style: "background:none;border:none;text-align:left;cursor:pointer;",
+        onclick: openEdit,
+      }, infoChildren),
+      el("div", { class: "card-actions" }, [
+        el("button", { type: "button", class: "btn btn-secondary btn-sm", text: "Editar", onclick: openEdit }),
+        el("button", {
+          type: "button", class: "btn btn-danger btn-sm", text: "Eliminar",
+          onclick: async () => {
+            if (!confirm("¿Eliminar este movimiento?")) return;
+            if (item.kind === "transfer") {
+              await FinDB.remove("transfers", item.data.id);
+            } else {
+              await FinDB.remove("transactions", item.data.id);
+              const links = transactionTags.filter((l) => l.transaction_id === item.data.id);
+              for (const l of links) await FinDB.remove("transaction_tags", l.id);
+              const food = foodExpenses.find((f) => f.transaction_id === item.data.id);
+              if (food) await FinDB.remove("food_expenses", food.id);
+            }
+            window.refreshApp();
+          },
+        }),
+      ]),
     ]);
     list.appendChild(card);
   });
