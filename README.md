@@ -108,3 +108,23 @@ Como el nombre de la base de datos interna cambió (`misfinanzas` →
 van a migrar automáticamente** — esta es una base nueva, limpia, en el
 mismo dispositivo. Si necesitás rescatar esos datos viejos, avisame
 antes de reinstalar y armamos algo para exportarlos primero.
+
+## Correcciones posteriores
+
+- **Edición de deudas**: si todavía no pagaste ninguna cuota, editar
+  monto/tasa/cuotas/fecha ahora **regenera el cronograma completo**
+  automáticamente (antes el registro se guardaba pero la cuota y el
+  saldo mostrados quedaban congelados del cronograma viejo, dando la
+  falsa impresión de que "no se guardaba nada"). Si ya pagaste al
+  menos una cuota, esos campos quedan bloqueados (con una nota
+  explicando por qué) para no invalidar el historial de pagos, pero
+  podés seguir editando nombre, acreedor, tipo, día de pago, cuenta y
+  notas normalmente.
+- **Corriente/Diferido de tarjetas ahora visible en "Deudas"**: antes
+  solo se veía dentro de Cuentas. Ahora la pestaña Deudas tiene una
+  sección "💳 Tarjetas de Crédito" con la deuda total, el próximo pago
+  (monto + fecha) y el detalle de cada compra diferida — junto a
+  Préstamos e Impuestos, como una vista completa de todo lo que debés.
+- Se agregaron botones "Editar" explícitos en Cuentas, Deudas,
+  Vehículos y Metas (antes había que tocar toda la tarjeta, que no era
+  obvio).

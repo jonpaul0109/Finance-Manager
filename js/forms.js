@@ -331,27 +331,38 @@ function transactionForm(state, existing) {
 // ---------------------------------------------------------------------
 function debtForm(state, existing) {
   existing = existing || {};
-  const { accounts } = state;
+  const { accounts, debtInstallments } = state;
   const form = el("form", { class: "modal-form" });
+
+  const myInstallments = existing.id ? (debtInstallments || []).filter((i) => i.debt_id === existing.id) : [];
+  const hasPayments = myInstallments.some((i) => (i.paid_amount || 0) > 0);
+  const isEditable = !existing.id || !hasPayments;
 
   form.appendChild(field("Nombre de la deuda", textInput("debt-name", existing.debt_name, "Ej: Préstamo del auto")));
   form.appendChild(field("Acreedor", textInput("debt-creditor", existing.creditor, "Ej: Banco Pichincha")));
   form.appendChild(field("Tipo", el("select", { id: "debt-type" }, Object.entries(DEBT_TYPE_LABELS).map(([v, l]) =>
     el("option", { value: v, text: l, ...(existing.debt_type === v ? { selected: "selected" } : {}) })))));
-  form.appendChild(field("Monto original (principal)", numberInput("debt-amount", existing.original_amount ?? "")));
-  form.appendChild(field("Tasa de interés anual % (0 si no aplica)", numberInput("debt-rate", existing.interest_rate ?? 0)));
 
-  if (!existing.id) {
-    form.appendChild(field("Número de cuotas", numberInput("debt-installments", 12, 1, "1")));
+  const amountInput = numberInput("debt-amount", existing.original_amount ?? "");
+  const rateInput = numberInput("debt-rate", existing.interest_rate ?? 0);
+  const startInput = dateInput("debt-start", existing.start_date);
+  const installmentsInput = numberInput("debt-installments", myInstallments.length || 12, 1, "1");
+  if (!isEditable) {
+    [amountInput, rateInput, startInput, installmentsInput].forEach((i) => { i.disabled = true; });
   }
-  form.appendChild(field("Fecha de inicio", dateInput("debt-start", existing.start_date)));
+  form.appendChild(field("Monto original (principal)", amountInput));
+  form.appendChild(field("Tasa de interés anual % (0 si no aplica)", rateInput));
+  form.appendChild(field("Número de cuotas", installmentsInput));
+  form.appendChild(field("Fecha de inicio", startInput));
   form.appendChild(field("Día de pago mensual (1-31)", numberInput("debt-day", existing.due_day ?? "", 1, "1")));
   form.appendChild(field("Cuenta de pago habitual (opcional)", el("select", { id: "debt-account" },
     [el("option", { value: "", text: "(ninguna)" }), ...accountOptions(accounts, existing.account_id)])));
   form.appendChild(field("Nota", textInput("debt-notes", existing.notes, "")));
 
-  if (existing.id) {
-    form.appendChild(el("p", { class: "muted", text: "El cronograma de cuotas no se regenera al editar (solo cambian los datos generales)." }));
+  if (existing.id && !isEditable) {
+    form.appendChild(el("p", { class: "muted", text: "Ya pagaste al menos una cuota, asi que el monto, tasa, cuotas y fecha de inicio quedan bloqueados (cambiarlos invalidaria el cronograma y los pagos ya hechos). Podes editar el resto." }));
+  } else if (existing.id) {
+    form.appendChild(el("p", { class: "muted", text: "Todavia no pagaste ninguna cuota: si cambias monto, tasa, cuotas o fecha, el cronograma se vuelve a generar desde cero." }));
   }
 
   form.appendChild(el("button", { type: "submit", class: "btn btn-primary btn-lg", text: existing.id ? "Guardar cambios" : "Crear deuda y generar cronograma" }));
@@ -377,13 +388,18 @@ function debtForm(state, existing) {
       created_at: existing.created_at || nowIso(), updated_at: nowIso(),
     };
 
-    if (existing.id) {
+    if (existing.id && !isEditable) {
+      // Ya hay pagos: NO se toca el cronograma, se preservan monto/cuotas/fecha originales
       record.id = existing.id;
+      record.original_amount = existing.original_amount;
+      record.interest_rate = existing.interest_rate;
+      record.start_date = existing.start_date;
       record.current_balance = existing.current_balance;
       record.minimum_payment = existing.minimum_payment;
       record.end_date = existing.end_date;
       await FinDB.put("debts", record);
     } else {
+      // Nueva deuda, o edicion sin pagos: (re)generar el cronograma completo
       const numInstallments = parseInt(document.getElementById("debt-installments").value, 10) || 1;
       const schedule = generateAmortizationSchedule({
         original_amount: originalAmount, interest_rate: interestRate,
@@ -392,7 +408,9 @@ function debtForm(state, existing) {
       record.current_balance = originalAmount;
       record.minimum_payment = schedule[0].total_amount;
       record.end_date = schedule[schedule.length - 1].due_date;
+      if (existing.id) record.id = existing.id;
       const debtId = await FinDB.put("debts", record);
+      for (const old of myInstallments) await FinDB.remove("debt_installments", old.id);
       await FinDB.putMany("debt_installments", schedule.map((s) => ({ ...s, debt_id: debtId })));
     }
 

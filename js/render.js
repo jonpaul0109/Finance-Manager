@@ -320,6 +320,38 @@ function renderDebts(container, state) {
     container.appendChild(list);
   }
 
+  // -- Tarjetas de credito: deuda actual + corriente vs diferido -----------
+  container.appendChild(el("h2", { text: "💳 Tarjetas de Crédito" }));
+  const cards = (state.accounts || []).filter((a) => a.account_type === "CREDIT_CARD" && a.is_active !== 0);
+  if (!cards.length) {
+    container.appendChild(el("p", { class: "muted", text: "No tenés tarjetas de crédito registradas." }));
+  } else {
+    const clist = el("div", { class: "sample-list" });
+    cards.forEach((a) => {
+      const bal = state.balances[a.id] || 0;
+      const nextPay = cardNextPaymentInfo(a, state.transactions);
+      const brk = cardBreakdown(a.id, state.transactions);
+      const detail = cardDeferredDetail(a.id, state.transactions, state.categories);
+      const ccard = el("div", { class: "sample-card" }, [
+        el("button", {
+          type: "button", class: "sample-info", style: "background:none;border:none;text-align:left;cursor:pointer;",
+          onclick: () => openModal("Editar cuenta", accountForm(a)),
+        }, [
+          el("strong", { text: a.account_name }),
+          el("span", { class: "amount-negative", text: `Deuda total: ${money(bal)}` }),
+          ...(nextPay ? [el("span", { class: "muted", text: `Próximo pago: ${money(nextPay.amount)} — ${fmtDate(nextPay.date)}` })] : []),
+          ...(brk.diferidoPendingCount > 0 ? [el("span", { class: "muted", text: `Diferido pendiente: ${money(brk.diferidoPendingTotal)} en ${brk.diferidoPendingCount} compra(s)` })] : []),
+          ...detail.map((it) => el("span", { class: "muted deferred-line", text:
+            `↳ ${it.categoryLabel} (${it.tx.transaction_date}) · cuota ${it.cuotaActual}/${it.n}: ${money(it.perInstallment)}/mes` +
+            ` · restan ${money(it.remaining)}` + (it.nextInstallmentDate ? ` · próxima ${fmtDate(it.nextInstallmentDate)}` : "")
+          })),
+        ]),
+      ]);
+      clist.appendChild(ccard);
+    });
+    container.appendChild(clist);
+  }
+
   container.appendChild(el("h2", { text: "🧾 Impuestos" }));
   if (!taxes.length) {
     container.appendChild(el("p", { class: "muted", text: "No tenés impuestos registrados." }));
