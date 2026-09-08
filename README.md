@@ -159,3 +159,18 @@ antes de reinstalar y armamos algo para exportarlos primero.
   no poder editar una compra mal cargada (ahora sí se puede). Si te
   sigue pasando avisame con más detalle -- qué mensaje o comportamiento
   ves exactamente al intentar la compra número 4.
+
+## Cuarta corrección
+
+- **Bug real encontrado por vos**: una compra diferida recién
+  registrada mostraba "cuota 2/N" en vez de "cuota 1/N" (como si ya se
+  hubiera facturado un pago que nunca se hizo). La causa: la función
+  que cuenta "meses transcurridos" comparaba solo el número de mes
+  calendario (ej. septiembre - agosto = 1), ignorando el día del mes.
+  Una compra del 12 de agosto, vista el 7 de septiembre (todavía sin
+  cumplir el mes completo), ya contaba como "1 mes pasado" solo porque
+  cambió el número de mes en el calendario. Ahora se compara también
+  el día del mes, así que un mes recién cuenta como transcurrido
+  cuando se cumple la fecha exacta del aniversario mensual de la
+  compra. Verificado: una compra hecha hoy ahora muestra "cuota 1/N"
+  y el monto completo pendiente, correctamente.

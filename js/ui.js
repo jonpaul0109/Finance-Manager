@@ -116,7 +116,12 @@ function addMonths(dateStr, n) {
 function monthsBetween(dateStr, today) {
   const d = new Date(dateStr + "T00:00:00");
   const t = stripTime(today || new Date());
-  return (t.getFullYear() - d.getFullYear()) * 12 + (t.getMonth() - d.getMonth());
+  let months = (t.getFullYear() - d.getFullYear()) * 12 + (t.getMonth() - d.getMonth());
+  // Un mes solo cuenta como "transcurrido" una vez que se cumple el
+  // mismo dia-del-mes de la compra (si no, contaba un mes de mas desde
+  // el dia 1 del mes siguiente, aunque no hubiera pasado un mes completo).
+  if (t.getDate() < d.getDate()) months -= 1;
+  return Math.max(0, months);
 }
 
 // -- constantes / etiquetas de enums (calcan los CHECK del esquema) ------
