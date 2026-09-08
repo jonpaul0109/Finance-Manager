@@ -118,7 +118,7 @@ function cardNextPaymentInfo(account, transactions, today) {
   const { cycleStart, cycleEnd } = cycle;
 
   let payDate = new Date(cycleEnd.getFullYear(), cycleEnd.getMonth(), account.payment_day || cycleEnd.getDate());
-  if (payDate <= cycleEnd) payDate.setMonth(payDate.getMonth() + 1);
+  if (payDate < cycleEnd) payDate.setMonth(payDate.getMonth() + 1);
 
   let amount = 0;
   transactions.forEach((tx) => {

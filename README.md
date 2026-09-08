@@ -174,3 +174,21 @@ antes de reinstalar y armamos algo para exportarlos primero.
   cuando se cumple la fecha exacta del aniversario mensual de la
   compra. Verificado: una compra hecha hoy ahora muestra "cuota 1/N"
   y el monto completo pendiente, correctamente.
+
+## Quinta corrección (importante)
+
+- **El service worker nunca actualizaba su versión de caché** desde la
+  primera entrega -- por eso, aunque el código ya estaba corregido en
+  el paquete descargable, tu teléfono seguía sirviendo el JavaScript
+  viejo desde el cache offline. Subí la versión de cache
+  (`misfinanzas-cache-v2`), lo que fuerza a descartar todo lo cacheado
+  y traer los archivos nuevos la próxima vez que abras la app CON
+  internet. **Importante**: después de instalar esta versión, abrí la
+  app una vez con conexión a internet para que se actualice el cache;
+  después va a seguir funcionando offline con la version nueva.
+- **Bug real de corte/pago**: cuando el día de pago coincide
+  exactamente con el día de corte (como tu tarjeta Diners, corte=pago),
+  la comparación usaba `<=` en vez de `<`, lo que empujaba el pago un
+  mes de más aunque el corte recién estuviera cerrando. Verificado con
+  tu caso exacto (corte=pago=18, compra de hoy): ahora "Próximo pago"
+  muestra correctamente este mes, no el siguiente.
