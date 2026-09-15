@@ -76,7 +76,7 @@ function renderDashboard(container, state) {
   }
 
   // -- proximos vencimientos --
-  const upcoming = computeUpcoming(accounts, transactions, debts, debtInstallments, taxes, now);
+  const upcoming = computeUpcoming(accounts, transactions, transfers, debts, debtInstallments, taxes, now);
   container.appendChild(el("h2", { text: "Próximos vencimientos" }));
   if (!upcoming.length) {
     container.appendChild(el("p", { class: "muted", text: "No hay vencimientos próximos." }));
@@ -223,11 +223,21 @@ function renderAccounts(container, state) {
       if (a.account_type === "CREDIT_CARD") {
         const avail = (a.credit_limit || 0) - bal;
         extra.push(`Disponible: ${money(avail)} de ${money(a.credit_limit || 0)}`);
-        const nextPay = cardNextPaymentInfo(a, transactions);
-        if (nextPay) extra.push(`Próximo pago: ${money(nextPay.amount)} — ${fmtDate(nextPay.date)}`);
+        const nextPay = cardNextPaymentInfo(a, transactions, transfers);
+        if (nextPay) {
+          const parts = [];
+          if (nextPay.corriente > 0) parts.push(`Corriente: ${money(nextPay.corriente)}`);
+          if (nextPay.diferido > 0) parts.push(`Diferido: ${money(nextPay.diferido)}`);
+          extra.push(`Próximo pago: ${money(nextPay.amount)}${parts.length ? " (" + parts.join(" + ") + ")" : ""} — ${fmtDate(nextPay.date)}`);
+        }
         const brk = cardBreakdown(a.id, transactions);
         if (brk.diferidoPendingCount > 0) extra.push(`Diferido pendiente: ${money(brk.diferidoPendingTotal)} en ${brk.diferidoPendingCount} compra(s)`);
         deferredDetail = cardDeferredDetail(a.id, transactions, categories);
+        const corrienteDetail = nextPay ? cardCorrienteDetail(a.id, transactions, categories, nextPay.cycleStart, nextPay.cycleEnd) : [];
+        deferredDetail = [
+          ...corrienteDetail.map((it) => ({ isCorriente: true, tx: it.tx, categoryLabel: it.categoryLabel })),
+          ...deferredDetail,
+        ];
       }
       const balTone = a.account_type === "CREDIT_CARD" ? "amount-negative" : "amount-positive";
 
@@ -240,9 +250,10 @@ function renderAccounts(container, state) {
           el("span", { text: accountTypeLabel(a.account_type) + (a.institution ? ` · ${a.institution}` : "") }),
           el("span", { class: balTone, text: money(bal) }),
           ...extra.map((t) => el("span", { class: "muted", text: t })),
-          ...deferredDetail.map((it) => el("span", { class: "muted deferred-line", text:
-            `↳ ${it.categoryLabel} (${it.tx.transaction_date}) · cuota ${it.cuotaActual}/${it.n}: ${money(it.perInstallment)}/mes` +
-            ` · restan ${money(it.remaining)}` + (it.nextInstallmentDate ? ` · próxima ${it.nextInstallmentDate}` : "")
+          ...deferredDetail.map((it) => el("span", { class: "muted deferred-line", text: it.isCorriente
+            ? `↳ ${it.categoryLabel} (${it.tx.transaction_date}) · corriente: ${money(it.tx.amount)}`
+            : `↳ ${it.categoryLabel} (${it.tx.transaction_date}) · cuota ${it.cuotaActual}/${it.n}: ${money(it.perInstallment)}/mes` +
+              ` · restan ${money(it.remaining)}` + (it.nextInstallmentDate ? ` · próxima ${it.nextInstallmentDate}` : "")
           })),
         ]),
         el("div", { class: "card-actions" }, [
@@ -354,7 +365,7 @@ function renderDebts(container, state) {
     const clist = el("div", { class: "sample-list" });
     cards.forEach((a) => {
       const bal = state.balances[a.id] || 0;
-      const nextPay = cardNextPaymentInfo(a, state.transactions);
+      const nextPay = cardNextPaymentInfo(a, state.transactions, state.transfers);
       const brk = cardBreakdown(a.id, state.transactions);
       const detail = cardDeferredDetail(a.id, state.transactions, state.categories);
       const ccard = el("div", { class: "sample-card" }, [
@@ -364,8 +375,15 @@ function renderDebts(container, state) {
         }, [
           el("strong", { text: a.account_name }),
           el("span", { class: "amount-negative", text: `Deuda total: ${money(bal)}` }),
-          ...(nextPay ? [el("span", { class: "muted", text: `Próximo pago: ${money(nextPay.amount)} — ${fmtDate(nextPay.date)}` })] : []),
+          ...(nextPay ? [el("span", { class: "muted", text:
+            `Próximo pago: ${money(nextPay.amount)}` +
+            ((nextPay.corriente > 0 || nextPay.diferido > 0) ? ` (Corriente: ${money(nextPay.corriente)} + Diferido: ${money(nextPay.diferido)})` : "") +
+            ` — ${fmtDate(nextPay.date)}`
+          })] : []),
           ...(brk.diferidoPendingCount > 0 ? [el("span", { class: "muted", text: `Diferido pendiente: ${money(brk.diferidoPendingTotal)} en ${brk.diferidoPendingCount} compra(s)` })] : []),
+          ...(nextPay ? cardCorrienteDetail(a.id, state.transactions, state.categories, nextPay.cycleStart, nextPay.cycleEnd).map((it) =>
+            el("span", { class: "muted deferred-line", text: `↳ ${it.categoryLabel} (${it.tx.transaction_date}) · corriente: ${money(it.tx.amount)}` })
+          ) : []),
           ...detail.map((it) => el("span", { class: "muted deferred-line", text:
             `↳ ${it.categoryLabel} (${it.tx.transaction_date}) · cuota ${it.cuotaActual}/${it.n}: ${money(it.perInstallment)}/mes` +
             ` · restan ${money(it.remaining)}` + (it.nextInstallmentDate ? ` · próxima ${fmtDate(it.nextInstallmentDate)}` : "")

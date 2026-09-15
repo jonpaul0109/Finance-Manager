@@ -192,3 +192,11 @@ antes de reinstalar y armamos algo para exportarlos primero.
   mes de más aunque el corte recién estuviera cerrando. Verificado con
   tu caso exacto (corte=pago=18, compra de hoy): ahora "Próximo pago"
   muestra correctamente este mes, no el siguiente.
+
+## Sexta corrección
+
+- **Compras corrientes ahora visibles en la tarjeta**: antes solo se
+  listaban individualmente las compras diferidas (con su "↳"); las
+  corrientes solo contaban para el total pero no aparecían en ningún
+  detalle -- confirmado como bug real. Ahora cada compra corriente
+  también aparece con su propia línea, en Cuentas y en Deudas.

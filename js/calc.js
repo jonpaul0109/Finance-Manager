@@ -111,33 +111,86 @@ function cardCycle(account, today) {
   return { cycleStart, cycleEnd };
 }
 
-function cardNextPaymentInfo(account, transactions, today) {
+function cardNextPaymentInfo(account, transactions, transfers, today) {
   today = today || new Date();
-  const cycle = cardCycle(account, today);
-  if (!cycle) return null;
-  const { cycleStart, cycleEnd } = cycle;
+  if (!account.cutoff_day) return null;
 
+  const charges = transactions.filter((tx) => tx.transaction_type === "EXPENSE" && tx.account_id === account.id);
+  if (!charges.length) return null;
+
+  function amountForCycle(cycleStart, cycleEnd) {
+    let corriente = 0, diferido = 0;
+    charges.forEach((tx) => {
+      const d = new Date(tx.transaction_date + "T00:00:00");
+      const paymentType = tx.payment_type || "CORRIENTE";
+      if (paymentType === "CORRIENTE") {
+        if (d >= cycleStart && d <= cycleEnd) corriente += tx.amount;
+      } else {
+        const n = Math.max(1, parseInt(tx.installments, 10) || 1);
+        const per = round2(tx.amount / n);
+        for (let k = 0; k < n; k++) {
+          const instDate = new Date(d);
+          instDate.setMonth(instDate.getMonth() + k);
+          if (instDate >= cycleStart && instDate <= cycleEnd) { diferido += per; break; }
+        }
+      }
+    });
+    return { corriente: round2(corriente), diferido: round2(diferido), total: round2(corriente + diferido) };
+  }
+
+  // Arranca en el primer corte que alcanza a cubrir la compra mas
+  // antigua -- no en el corte de "hoy". Si hay compras viejas sin
+  // pagar, el proximo pago pendiente es el de ESE corte, no el actual.
+  const oldestDateStr = charges.reduce((min, tx) => (tx.transaction_date < min ? tx.transaction_date : min), charges[0].transaction_date);
+  let cycleEnd = new Date(oldestDateStr + "T00:00:00");
+  cycleEnd.setDate(account.cutoff_day);
+  if (cycleEnd < new Date(oldestDateStr + "T00:00:00")) cycleEnd.setMonth(cycleEnd.getMonth() + 1);
+
+  // Los pagos (transferencias hacia la tarjeta) se aplican ciclo por
+  // ciclo, el mas viejo primero -- como un estado de cuenta real: si
+  // ya pagaste lo suficiente para cubrir un corte, pasamos al siguiente.
+  let totalPaid = (transfers || []).filter((tr) => tr.to_account_id === account.id).reduce((s, tr) => s + tr.amount, 0);
+
+  let cycleStart;
+  for (let i = 0; i < 60; i++) {
+    cycleStart = new Date(cycleEnd);
+    cycleStart.setMonth(cycleStart.getMonth() - 1);
+    cycleStart.setDate(cycleStart.getDate() + 1);
+    const cycleAmount = amountForCycle(cycleStart, cycleEnd).total;
+    if (cycleAmount <= 0.01) {
+      cycleEnd = new Date(cycleEnd);
+      cycleEnd.setMonth(cycleEnd.getMonth() + 1);
+      continue;
+    }
+    if (totalPaid >= cycleAmount - 0.01) {
+      totalPaid -= cycleAmount;
+      cycleEnd = new Date(cycleEnd);
+      cycleEnd.setMonth(cycleEnd.getMonth() + 1);
+      continue;
+    }
+    break; // primer corte que todavia no esta cubierto por los pagos
+  }
+
+  const breakdown = amountForCycle(cycleStart, cycleEnd);
   let payDate = new Date(cycleEnd.getFullYear(), cycleEnd.getMonth(), account.payment_day || cycleEnd.getDate());
   if (payDate < cycleEnd) payDate.setMonth(payDate.getMonth() + 1);
 
-  let amount = 0;
-  transactions.forEach((tx) => {
-    if (tx.transaction_type !== "EXPENSE" || tx.account_id !== account.id) return;
-    const d = new Date(tx.transaction_date + "T00:00:00");
-    const paymentType = tx.payment_type || "CORRIENTE";
-    if (paymentType === "CORRIENTE") {
-      if (d >= cycleStart && d <= cycleEnd) amount += tx.amount;
-    } else {
-      const n = Math.max(1, parseInt(tx.installments, 10) || 1);
-      const per = round2(tx.amount / n);
-      for (let k = 0; k < n; k++) {
-        const instDate = new Date(d);
-        instDate.setMonth(instDate.getMonth() + k);
-        if (instDate >= cycleStart && instDate <= cycleEnd) { amount += per; break; }
-      }
-    }
-  });
-  return { amount: round2(amount), date: fmtDate(payDate) };
+  return { amount: breakdown.total, corriente: breakdown.corriente, diferido: breakdown.diferido, date: payDate, cycleStart, cycleEnd };
+}
+
+// Lista individual de compras "corriente" dentro de un ciclo de
+// facturacion (mismo estilo que cardDeferredDetail, pero para
+// corrientes -- se facturan completas, sin cuotas).
+function cardCorrienteDetail(accountId, transactions, categories, cycleStart, cycleEnd) {
+  if (!cycleStart || !cycleEnd) return [];
+  return transactions
+    .filter((tx) => tx.transaction_type === "EXPENSE" && tx.account_id === accountId && (tx.payment_type || "CORRIENTE") === "CORRIENTE")
+    .filter((tx) => {
+      const d = new Date(tx.transaction_date + "T00:00:00");
+      return d >= cycleStart && d <= cycleEnd;
+    })
+    .map((tx) => ({ tx, categoryLabel: categoryName(tx.category_id, categories) }))
+    .sort((a, b) => (a.tx.transaction_date || "").localeCompare(b.tx.transaction_date || ""));
 }
 
 // -- Deudas: cronograma de amortizacion (sistema frances si hay interes,
@@ -260,13 +313,13 @@ function vehicleSpend(vehicleId, transactions) {
 }
 
 // -- Proximos vencimientos: tarjetas + cuotas de deuda + impuestos -------
-function computeUpcoming(accounts, transactions, debts, debtInstallments, taxes, today) {
+function computeUpcoming(accounts, transactions, transfers, debts, debtInstallments, taxes, today) {
   today = today || new Date();
   const out = [];
 
   accounts.forEach((a) => {
     if (a.account_type === "CREDIT_CARD" && a.payment_day) {
-      const info = cardNextPaymentInfo(a, transactions, today);
+      const info = cardNextPaymentInfo(a, transactions, transfers, today);
       if (info) {
         const d = daysUntil(info.date, today);
         if (d <= 30) out.push({ name: a.account_name, detail: `Pago de tarjeta: ${money(info.amount)}`, date: info.date, daysLabel: daysLabel(d), kind: "card" });
