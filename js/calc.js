@@ -322,7 +322,7 @@ function computeUpcoming(accounts, transactions, transfers, debts, debtInstallme
       const info = cardNextPaymentInfo(a, transactions, transfers, today);
       if (info) {
         const d = daysUntil(info.date, today);
-        if (d <= 30) out.push({ name: a.account_name, detail: `Pago de tarjeta: ${money(info.amount)}`, date: info.date, daysLabel: daysLabel(d), kind: "card" });
+        if (d <= 30) out.push({ name: a.account_name, detail: `Pago de tarjeta: ${money(info.amount)}`, date: fmtDate(info.date), daysLabel: daysLabel(d), kind: "card" });
       }
     }
   });

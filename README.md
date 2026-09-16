@@ -214,3 +214,17 @@ antes de reinstalar y armamos algo para exportarlos primero.
   correctamente (no reproduje el error). Si te sigue pasando, pasame
   una captura o los montos exactos que estás viendo para investigar
   el caso puntual.
+
+## Octava corrección (bug critico de carga)
+
+- **"(a.date || "").localeCompare is not a function" al recargar**:
+  en `computeUpcoming`, el proximo pago de una tarjeta se guardaba
+  como objeto `Date` (no como texto), mientras que las deudas e
+  impuestos guardaban la fecha como texto ("YYYY-MM-DD"). Al ordenar
+  la lista combinada de vencimientos, si el primer elemento era el
+  pago de una tarjeta, `.localeCompare` fallaba porque los objetos
+  `Date` no tienen ese metodo. Esto rompia la carga completa de la
+  app apenas hubiera una tarjeta con dia de pago configurado y un
+  gasto reciente. Corregido: ahora todas las fechas en esa lista son
+  texto de forma consistente. Verificado recargando la pagina con ese
+  escenario exacto -- carga limpio, sin errores.
