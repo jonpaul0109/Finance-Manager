@@ -343,3 +343,39 @@ function computeUpcoming(accounts, transactions, transfers, debts, debtInstallme
 
   return out.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
 }
+
+// -- Resumen de deuda para el Inicio: total adeudado + cuanto vence
+// especificamente ESTE mes calendario, sumando tarjetas + prestamos +
+// impuestos pendientes ---------------------------------------------------
+function computeDebtSummary(accounts, debts, taxes, debtInstallments, transactions, transfers) {
+  const thisMonthKey = monthKey(todayStr());
+
+  let totalCardDebt = 0, cardDueThisMonth = 0;
+  accounts.filter((a) => a.account_type === "CREDIT_CARD").forEach((a) => {
+    totalCardDebt += computeAccountBalance(a, transactions, transfers);
+    const nextPay = cardNextPaymentInfo(a, transactions, transfers);
+    if (nextPay && monthKey(fmtDate(nextPay.date)) === thisMonthKey) cardDueThisMonth += nextPay.amount;
+  });
+
+  let totalLoanDebt = 0, loanDueThisMonth = 0;
+  (debts || []).filter((d) => d.is_active).forEach((d) => {
+    totalLoanDebt += d.current_balance || 0;
+    const prog = debtProgress(d, debtInstallments || []);
+    if (prog.nextDueDate && monthKey(prog.nextDueDate) === thisMonthKey) loanDueThisMonth += prog.nextAmount;
+  });
+
+  let taxesPending = 0, taxesDueThisMonth = 0;
+  (taxes || []).forEach((t) => {
+    if (t.status === "PAID") return;
+    const pending = round2((t.amount || 0) - (t.paid_amount || 0));
+    taxesPending += pending;
+    if (t.due_date && monthKey(t.due_date) === thisMonthKey) taxesDueThisMonth += pending;
+  });
+
+  return {
+    totalCardDebt: round2(totalCardDebt), totalLoanDebt: round2(totalLoanDebt), taxesPending: round2(taxesPending),
+    totalDebt: round2(totalCardDebt + totalLoanDebt + taxesPending),
+    cardDueThisMonth: round2(cardDueThisMonth), loanDueThisMonth: round2(loanDueThisMonth), taxesDueThisMonth: round2(taxesDueThisMonth),
+    totalDueThisMonth: round2(cardDueThisMonth + loanDueThisMonth + taxesDueThisMonth),
+  };
+}

@@ -200,3 +200,17 @@ antes de reinstalar y armamos algo para exportarlos primero.
   corrientes solo contaban para el total pero no aparecían en ningún
   detalle -- confirmado como bug real. Ahora cada compra corriente
   también aparece con su propia línea, en Cuentas y en Deudas.
+
+## Septima entrega
+
+- **Nueva sección "💳 Deuda" en Inicio**: muestra la deuda total
+  (tarjetas + préstamos + impuestos pendientes) y cuánto vence
+  específicamente este mes calendario, con el desglose por tipo
+  (tarjetas, préstamos, impuestos) y su parte correspondiente a este
+  mes cada uno.
+- Sobre el reporte de "Patrimonio Neto sumando todo": probé la fórmula
+  (activos - pasivos) con un escenario real -- banco con ingreso y
+  gasto, más una tarjeta de crédito con deuda -- y calculó
+  correctamente (no reproduje el error). Si te sigue pasando, pasame
+  una captura o los montos exactos que estás viendo para investigar
+  el caso puntual.

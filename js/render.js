@@ -56,6 +56,32 @@ function renderDashboard(container, state) {
   ]);
   container.appendChild(summary);
 
+  // -- deuda total y cuanto vence este mes -----------------------------
+  const debtSummary = computeDebtSummary(accounts, debts, taxes, debtInstallments, transactions, transfers);
+  if (debtSummary.totalDebt > 0 || debtSummary.totalDueThisMonth > 0) {
+    container.appendChild(el("h2", { text: "💳 Deuda" }));
+    const debtGrid = el("div", { class: "summary-grid" }, [
+      el("div", { class: "summary-card" }, [
+        el("span", { class: "muted", text: "Deuda total" }),
+        el("strong", { class: "amount-negative", text: money(debtSummary.totalDebt) }),
+      ]),
+      el("div", { class: "summary-card" }, [
+        el("span", { class: "muted", text: `A pagar en ${monthLabel(monthKey(todayStr()))}` }),
+        el("strong", { class: "amount-negative", text: money(debtSummary.totalDueThisMonth) }),
+      ]),
+    ]);
+    container.appendChild(debtGrid);
+    const parts = [];
+    if (debtSummary.totalCardDebt > 0) parts.push(`Tarjetas: ${money(debtSummary.totalCardDebt)} (vence este mes: ${money(debtSummary.cardDueThisMonth)})`);
+    if (debtSummary.totalLoanDebt > 0) parts.push(`Préstamos: ${money(debtSummary.totalLoanDebt)} (vence este mes: ${money(debtSummary.loanDueThisMonth)})`);
+    if (debtSummary.taxesPending > 0) parts.push(`Impuestos pendientes: ${money(debtSummary.taxesPending)} (vence este mes: ${money(debtSummary.taxesDueThisMonth)})`);
+    if (parts.length) {
+      const detailBox = el("div", { class: "sample-list" });
+      parts.forEach((p) => detailBox.appendChild(el("p", { class: "muted", text: p })));
+      container.appendChild(detailBox);
+    }
+  }
+
   // -- alertas de presupuesto del mes actual --
   const now = new Date();
   const currentBudget = budgets.find((b) => b.year === now.getFullYear() && b.month === now.getMonth() + 1);
