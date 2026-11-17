@@ -35,6 +35,16 @@ function enrichTxForEdit(tx, state) {
     ...(food ? { food_type: food.food_type, meal_type: food.meal_type, people_count: food.people_count, location: food.location } : {}),
   };
 }
+// Texto de una compra diferida (detalle bajo la tarjeta), con gracia.
+function deferredLineText(it) {
+  const head = `↳ ${it.categoryLabel} (${it.tx.transaction_date}) · `;
+  if (it.inGrace) {
+    return head + `en gracia (faltan ${it.graceLeft} mes(es)) · cuota 1/${it.n}: ${money(it.perInstallment)}/mes empieza ${it.nextInstallmentDate}` +
+      ` · restan ${money(it.remaining)}`;
+  }
+  return head + `cuota ${it.cuotaActual}/${it.n}: ${money(it.perInstallment)}/mes` + (it.grace ? ` (gracia ${it.grace}m)` : "") +
+    ` · restan ${money(it.remaining)}` + (it.nextInstallmentDate ? ` · próxima ${it.nextInstallmentDate}` : "");
+}
 function accountTypeLabel(t) { return ACCOUNT_TYPE_LABELS[t] || t; }
 
 // ---------------------------------------------------------------------
@@ -178,7 +188,7 @@ function renderTransactions(container, state) {
       const tx = item.data;
       const isIncome = tx.transaction_type === "INCOME";
       desc = `${categoryName(tx.category_id, categories)}${tx.subcategory_id ? " · " + subcategoryName(tx.subcategory_id, subcategories) : ""} · ${accountName(tx.account_id, accounts)}`;
-      if (tx.payment_type === "DIFERIDO") desc += ` · Diferido ${tx.installments}x`;
+      if (tx.payment_type === "DIFERIDO") desc += ` · Diferido ${tx.installments}x${tx.grace_months ? ` (gracia ${tx.grace_months}m)` : ""}`;
       if (tx.vehicle_id) desc += ` · 🚗 ${vehicleName(tx.vehicle_id, vehicles)}`;
       const tagList = tagNamesFor(tx.id, transactionTags, tags);
       if (tagList.length) sub = tagList.join(", ");
@@ -278,8 +288,7 @@ function renderAccounts(container, state) {
           ...extra.map((t) => el("span", { class: "muted", text: t })),
           ...deferredDetail.map((it) => el("span", { class: "muted deferred-line", text: it.isCorriente
             ? `↳ ${it.categoryLabel} (${it.tx.transaction_date}) · corriente: ${money(it.tx.amount)}`
-            : `↳ ${it.categoryLabel} (${it.tx.transaction_date}) · cuota ${it.cuotaActual}/${it.n}: ${money(it.perInstallment)}/mes` +
-              ` · restan ${money(it.remaining)}` + (it.nextInstallmentDate ? ` · próxima ${it.nextInstallmentDate}` : "")
+            : deferredLineText(it)
           })),
         ]),
         el("div", { class: "card-actions" }, [
@@ -410,10 +419,7 @@ function renderDebts(container, state) {
           ...(nextPay ? cardCorrienteDetail(a.id, state.transactions, state.categories, nextPay.cycleStart, nextPay.cycleEnd).map((it) =>
             el("span", { class: "muted deferred-line", text: `↳ ${it.categoryLabel} (${it.tx.transaction_date}) · corriente: ${money(it.tx.amount)}` })
           ) : []),
-          ...detail.map((it) => el("span", { class: "muted deferred-line", text:
-            `↳ ${it.categoryLabel} (${it.tx.transaction_date}) · cuota ${it.cuotaActual}/${it.n}: ${money(it.perInstallment)}/mes` +
-            ` · restan ${money(it.remaining)}` + (it.nextInstallmentDate ? ` · próxima ${fmtDate(it.nextInstallmentDate)}` : "")
-          })),
+          ...detail.map((it) => el("span", { class: "muted deferred-line", text: deferredLineText(it) })),
         ]),
         el("div", { class: "card-actions" }, [
           el("button", {

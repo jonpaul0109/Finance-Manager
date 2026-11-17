@@ -53,6 +53,9 @@ function computeMonthSummary(transactions, ym) {
 }
 
 // -- Tarjetas: Corriente vs Diferido, ciclo real de facturacion ----------
+// Meses de gracia: meses iniciales en los que NO se factura ninguna
+// cuota. La cuota 1 se factura recien al terminar la gracia.
+function graceOf(tx) { return Math.max(0, parseInt(tx.grace_months, 10) || 0); }
 function cardBreakdown(accountId, transactions, today) {
   today = today || new Date();
   let diferidoPendingTotal = 0, diferidoPendingCount = 0;
@@ -60,7 +63,7 @@ function cardBreakdown(accountId, transactions, today) {
     if (tx.transaction_type !== "EXPENSE" || tx.account_id !== accountId) return;
     if ((tx.payment_type || "CORRIENTE") !== "DIFERIDO") return;
     const n = Math.max(1, parseInt(tx.installments, 10) || 1);
-    const elapsed = Math.max(0, monthsBetween(tx.transaction_date, today));
+    const elapsed = Math.max(0, monthsBetween(tx.transaction_date, today) - graceOf(tx));
     const per = round2(tx.amount / n);
     const remaining = round2(Math.max(0, tx.amount - per * elapsed));
     if (remaining > 0.01) { diferidoPendingTotal += remaining; diferidoPendingCount += 1; }
@@ -75,15 +78,20 @@ function cardDeferredDetail(accountId, transactions, categories, today) {
     if (tx.transaction_type !== "EXPENSE" || tx.account_id !== accountId) return;
     if ((tx.payment_type || "CORRIENTE") !== "DIFERIDO") return;
     const n = Math.max(1, parseInt(tx.installments, 10) || 1);
-    const elapsed = Math.max(0, monthsBetween(tx.transaction_date, today));
+    const grace = graceOf(tx);
+    const rawElapsed = Math.max(0, monthsBetween(tx.transaction_date, today));
+    const inGrace = rawElapsed < grace;
+    const elapsed = Math.max(0, rawElapsed - grace);
     const per = round2(tx.amount / n);
     const remaining = round2(Math.max(0, tx.amount - per * elapsed));
     if (remaining <= 0.01) return;
-    const cuotaActual = Math.min(n, elapsed + 1);
+    const cuotaActual = inGrace ? 0 : Math.min(n, elapsed + 1);
     let nextInstallmentDate = null;
-    if (elapsed < n) nextInstallmentDate = addMonths(tx.transaction_date, elapsed + 1);
+    if (inGrace) nextInstallmentDate = addMonths(tx.transaction_date, grace);          // inicio de la cuota 1
+    else if (elapsed < n) nextInstallmentDate = addMonths(tx.transaction_date, grace + elapsed + 1);
     items.push({
       tx, n, cuotaActual, perInstallment: per, remaining, nextInstallmentDate,
+      grace, inGrace, graceLeft: inGrace ? grace - rawElapsed : 0,
       categoryLabel: categoryName(tx.category_id, categories),
     });
   });
@@ -128,9 +136,10 @@ function cardNextPaymentInfo(account, transactions, transfers, today) {
       } else {
         const n = Math.max(1, parseInt(tx.installments, 10) || 1);
         const per = round2(tx.amount / n);
+        const grace = graceOf(tx);
         for (let k = 0; k < n; k++) {
           const instDate = new Date(d);
-          instDate.setMonth(instDate.getMonth() + k);
+          instDate.setMonth(instDate.getMonth() + grace + k);
           if (instDate >= cycleStart && instDate <= cycleEnd) { diferido += per; break; }
         }
       }

@@ -12,7 +12,7 @@ function exportTransactionsCsv(state) {
 
   const headers = [
     "Fecha", "Tipo", "Monto", "Cuenta Origen", "Cuenta Destino", "Categoria", "Subcategoria",
-    "Vehiculo", "Tipo de Pago", "Cuotas", "Etiquetas", "Descripcion",
+    "Vehiculo", "Tipo de Pago", "Cuotas", "Meses de Gracia", "Etiquetas", "Descripcion",
   ];
   const typeLabels = { INCOME: "Ingreso", EXPENSE: "Gasto" };
   const paymentLabels = PAYMENT_TYPE_LABELS;
@@ -28,6 +28,7 @@ function exportTransactionsCsv(state) {
     tx.vehicle_id ? vehicleName(tx.vehicle_id, vehicles) : "",
     tx.payment_type ? (paymentLabels[tx.payment_type] || tx.payment_type) : "",
     tx.installments || "",
+    tx.grace_months || "",
     tagNamesFor(tx.id, transactionTags, tags).join("; "),
     tx.description || "",
   ]);
@@ -38,7 +39,7 @@ function exportTransactionsCsv(state) {
     tr.amount,
     accountName(tr.from_account_id, accounts),
     accountName(tr.to_account_id, accounts),
-    "", "", "", "", "", "",
+    "", "", "", "", "", "", "",
     tr.description || "",
   ]);
 

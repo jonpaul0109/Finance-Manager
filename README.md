@@ -228,3 +228,20 @@ antes de reinstalar y armamos algo para exportarlos primero.
   gasto reciente. Corregido: ahora todas las fechas en esa lista son
   texto de forma consistente. Verificado recargando la pagina con ese
   escenario exacto -- carga limpio, sin errores.
+
+## Meses de gracia en compras diferidas
+
+- Al registrar (o editar) un gasto con tarjeta en **Diferido**, aparece
+  el campo **"Meses de gracia (0 si no hay)"** (0 a 36).
+- Durante la gracia no se factura ninguna cuota: la cuota 1 empieza al
+  terminar. El monto completo igual cuenta en la deuda total y en
+  "Diferido pendiente".
+- "Próximo pago" y "A pagar este mes" no incluyen la compra mientras
+  esté en gracia; entra recién en el ciclo donde cae la cuota 1.
+- En la tarjeta se ve: `en gracia (faltan 2 mes(es)) · cuota 1/6:
+  $100.00/mes empieza 2027-01-09 · restan $600.00`. Después de la
+  gracia: `cuota 1/6 ... (gracia 2m)`.
+- La lista de Movimientos muestra `Diferido 6x (gracia 2m)` y el CSV
+  tiene la nueva columna "Meses de Gracia".
+- Las compras diferidas ya guardadas quedan con gracia 0 (sin cambios).
+- Caché del service worker en v6: abrir la app con internet una vez.

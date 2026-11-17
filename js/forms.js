@@ -232,6 +232,8 @@ function transactionForm(state, existing) {
         instBox.innerHTML = "";
         if (paymentSelect.value === "DIFERIDO") {
           instBox.appendChild(field("Número de cuotas", numberInput("tx-installments", existing.installments || 3, 1, "1")));
+          instBox.appendChild(field("Meses de gracia (0 si no hay)", numberInput("tx-grace", existing.grace_months || 0, 0, "1")));
+          instBox.appendChild(el("p", { class: "muted", text: "Durante la gracia no se factura ninguna cuota; la cuota 1 empieza al terminar. La deuda total igual incluye el monto completo." }));
         }
       }
       paymentSelect.addEventListener("change", renderInstallments);
@@ -290,6 +292,10 @@ function transactionForm(state, existing) {
           const n = parseInt(document.getElementById("tx-installments").value, 10);
           if (!n || n < 1) { alert("Ingresa un numero de cuotas valido."); return; }
           record.installments = n;
+          const graceEl = document.getElementById("tx-grace");
+          const g = graceEl && graceEl.value !== "" ? parseInt(graceEl.value, 10) : 0;
+          if (isNaN(g) || g < 0 || g > 36) { alert("Los meses de gracia deben estar entre 0 y 36."); return; }
+          record.grace_months = g;
         }
       }
     }
